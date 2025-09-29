@@ -1,98 +1,268 @@
-from collections import Counter
-from utils import libros
+from utils import inventario, plataformas, generos, clientes, clientes_vip, empleados, ventas, contador_producto, contador_empleado, contador_venta, employees_iter, now_iso, format_money
 import utils
 
-def agregar_libro():
-    titulo=input("Nombre del libro: ")
-    autor=input("Autor del libro: ")
-    genero=input("Genero: ") 
-    ano_publicacion=input("Año de publicacion: ")
-    estado_libronuevo=input("Ya leiste este libro?, (s-n): ").lower()
-    datos={
-        "titulo": titulo,
-        "autor": autor,
-        "genero": genero,
-        "ano_publicacion": ano_publicacion,
-        "estado": True if estado_libronuevo == "s" else False
-    }
-    libros[utils.contador_indice]=datos
-    print(f"📚 {titulo} ha sido añadido a tu libreria con el indice {utils.contador_indice}")
-    utils.contador_indice+=1
-
-def ver_biblioteca():
-    if not libros:
-        print("NO hay libros añadidos en tu libreria") 
-        print("-------------------------------------")
-    else:
-        for idx, datos in libros.items():
-            estado_libro= "Leido" if datos["estado"] else "NO leido"
-            print(f"ID: {idx:<2} | Titulo: {datos['titulo']:<15} | Autor: {datos['autor']:<10} | Género: {datos['genero']:<10} | Año: {datos['ano_publicacion']} | Estado: {estado_libro}")
-
-def buscar_libro():
-    print("1. Buscar por titulo")
-    print("2. Buscar por autor")
-    print("3. Buscar por genero")
+# ---------- Inventario ----------
+def agregar_producto():
+    global contador_producto
     try:
-        opcion=int(input("Seleccione una opcion (1-3): "))
-        criterio=""
-        if opcion == 1: criterio="titulo"
-        elif opcion == 2: criterio="autor"
-        elif opcion == 3: criterio="genero"
-        else: 
-            print("Debe elegir un numero entre (1-3)")
-            return
-        valor=input(f"Ingrese valor para buscar en {criterio} (búsqueda parcial): ").lower()
-        resultados=[datos for datos in libros.values() if valor in datos[criterio].lower()]
-        if resultados:
-            for libro in resultados:
-                estado_texto="Leído" if libro["estado"] else "No leído"
-                print(f"Título: {libro['titulo']}, Autor: {libro['autor']}, Año: {libro['ano_publicacion']}, Género: {libro['genero']}, Estado: {estado_texto}")
-        else:
-            print("No se encontraron resultados")
-    except ValueError:
-        print("Se esperaba un número entre (1-3).")
-
-def estado_lectura():
-    try:
-        indice=int(input("Ingrese el indice del libro: "))
-        if indice in libros:
-            libros[indice]['estado']=not libros[indice]['estado']
-            estado="Leído" if libros[indice]['estado'] else "No leído"
-            print(f"{libros[indice]['titulo']} ha sido marcado como {estado}")
-        else:
-            print("No se encontro el indice")
-    except ValueError:
-        print("Se esperaba un número válido")
-
-def ver_estadisticas():
-    total=len(libros)
-    print(f"Total de libros añadidos: {total}")
-    leidos=[d['titulo'] for d in libros.values() if d['estado']]
-    por_leer=[d['titulo'] for d in libros.values() if not d['estado']]
-    print(f"Libros leídos: {len(leidos)} -> {leidos}")
-    print(f"Libros por leer: {len(por_leer)} -> {por_leer}")
-    generos=[d['genero'] for d in libros.values()]
-    if generos:
-        genero_frec=Counter(generos).most_common(1)[0]
-        print(f"Género más frecuente: {genero_frec[0]} ({genero_frec[1]} libros)")
-
-def eliminar_libro():
-    titulo=input("Ingrese título del libro a eliminar (búsqueda parcial): ").lower()
-    resultados=[(i,d) for i,d in libros.items() if titulo in d['titulo'].lower()]
-    if not resultados:
-        print("No se encontraron coincidencias.")
+        titulo = input("Título del juego: ").strip()
+        plataforma = input(f"Plataforma ({', '.join(sorted(plataformas))}): ").strip().title()
+        genero = input(f"Género ({', '.join(sorted(generos))}): ").strip().capitalize()
+        precio = float(input("Precio (USD): "))
+        stock = int(input("Stock inicial (unidades): "))
+    except Exception as e:
+        print("⚠️ Entrada inválida.", e)
         return
-    for idx,(i,d) in enumerate(resultados,1):
-        print(f"{idx}. {d['titulo']} (ID {i})")
-    try:
-        elegir=int(input("Seleccione el número a eliminar: "))
-        if 1<=elegir<=len(resultados):
-            id_elim=resultados[elegir-1][0]
-            eliminado=libros.pop(id_elim)
-            print(f"Libro eliminado: {eliminado['titulo']}")
-    except ValueError:
-        print("Entrada inválida")
+    plataformas.add(plataforma)
+    generos.add(genero)
+    producto = (utils.contador_producto, titulo, plataforma, genero)
+    inventario[utils.contador_producto] = {"producto": producto, "precio": precio, "stock": stock}
+    print(f"✅ Producto agregado: ID {utils.contador_producto} -> {titulo} ({plataforma} / {genero})")
+    utils.contador_producto += 1
 
-def salir():
-    print("GRACIAS POR USAR EL PROGRAMA DE GESTOR DE LIBROS. BYE BYE 😄 !!")
-    return False
+def ver_inventario():
+    if not inventario:
+        print("El inventario está vacío.")
+        return
+    print("ID | Título | Plataforma | Género | Precio | Stock")
+    print("-" * 70)
+    for codigo, info in inventario.items():
+        prod = info["producto"]
+        print(f"{codigo} | {prod[1]:30.30} | {prod[2]:7} | {prod[3]:10} | {format_money(info['precio']):7} | {info['stock']}")
+
+def actualizar_stock():
+    try:
+        codigo = int(input("Código del producto: "))
+        if codigo not in inventario:
+            print("Código no encontrado.")
+            return
+        delta = int(input("Ingrese cantidad a añadir (+) o retirar (-): "))
+    except ValueError:
+        print("Entrada numérica inválida.")
+        return
+    nuevo = inventario[codigo]["stock"] + delta
+    if nuevo < 0:
+        print("No puedes dejar stock negativo.")
+        return
+    inventario[codigo]["stock"] = nuevo
+    print(f"Stock actualizado. Nuevo stock: {inventario[codigo]['stock']}")
+
+def actualizar_precio():
+    try:
+        codigo = int(input("Código del producto: "))
+        if codigo not in inventario:
+            print("Código no encontrado.")
+            return
+        nuevo_precio = float(input("Nuevo precio: "))
+    except ValueError:
+        print("Entrada inválida.")
+        return
+    inventario[codigo]["precio"] = nuevo_precio
+    print(f"Precio actualizado: {format_money(nuevo_precio)}")
+
+# ---------- Clientes ----------
+def registrar_cliente():
+    dni = input("DNI del cliente: ").strip()
+    if dni in clientes:
+        print("Cliente ya registrado.")
+        return
+    nombre = input("Nombre del cliente: ").strip()
+    clientes[dni] = {"nombre": nombre, "compras": [], "vip": False}
+    print(f"✅ Cliente {nombre} registrado con DNI {dni}.")
+
+def marcar_vip():
+    dni = input("DNI del cliente: ").strip()
+    if dni not in clientes:
+        print("Cliente no encontrado.")
+        return
+    accion = input("Marcar VIP? (s/n): ").lower()
+    if accion == "s":
+        clientes[dni]["vip"] = True
+        clientes_vip.add(dni)
+        print(f"{clientes[dni]['nombre']} ahora es VIP.")
+    else:
+        clientes[dni]["vip"] = False
+        clientes_vip.discard(dni)
+        print(f"{clientes[dni]['nombre']} ya no es VIP.")
+
+def ver_clientes():
+    if not clientes:
+        print("No hay clientes registrados.")
+        return
+    for i, (dni, data) in enumerate(clientes.items(), 1):
+        vip_text = "VIP" if data["vip"] else "regular"
+        print(f"{i}. {data['nombre']} (DNI: {dni}) - {vip_text} - Compras: {len(data['compras'])}")
+
+# ---------- Empleados ----------
+def agregar_empleado():
+    nombre = input("Nombre del empleado: ").strip()
+    rol = input("Rol (vendedor/administrador): ").strip().lower()
+    empleado = (utils.contador_empleado, nombre, rol)
+    empleados.append(empleado)
+    print(f"✅ Empleado agregado ID {utils.contador_empleado}: {nombre} ({rol})")
+    utils.contador_empleado += 1
+
+def listar_empleados():
+    if not empleados:
+        print("No hay empleados.")
+        return
+    for i, emp in enumerate(empleados, 1):
+        print(f"{i}. ID: {emp[0]} | {emp[1]} | Rol: {emp[2]}")
+
+# ---------- Ventas ----------
+def crear_venta():
+    if not clientes:
+        print("No hay clientes registrados.")
+        return
+    dni = input("DNI del cliente: ").strip()
+    if dni not in clientes:
+        print("Cliente no registrado.")
+        return
+    if not empleados:
+        print("No hay empleados registrados.")
+        return
+    try:
+        empleado_id = int(input("ID del empleado que atiende: "))
+    except ValueError:
+        print("ID inválido.")
+        return
+    if not any(emp[0] == empleado_id for emp in employees_iter()):
+        print("Empleado no encontrado.")
+        return
+    carrito = []
+    while True:
+        ver_inventario()
+        try:
+            codigo = int(input("Código a añadir (0 para terminar): "))
+        except ValueError:
+            print("Entrada inválida.")
+            continue
+        if codigo == 0:
+            break
+        if codigo not in inventario:
+            print("Código no existe.")
+            continue
+        try:
+            cantidad = int(input("Cantidad: "))
+        except ValueError:
+            print("Cantidad inválida.")
+            continue
+        if cantidad <= 0:
+            print("Cantidad debe ser positiva.")
+            continue
+        if inventario[codigo]["stock"] < cantidad:
+            print("Stock insuficiente.")
+            continue
+        carrito.append((codigo, cantidad))
+    if not carrito:
+        print("Carrito vacío, venta cancelada.")
+        return
+    subtotal = sum(inventario[c]['precio'] * q for c, q in carrito)
+    descuento = 0.0
+    if clientes[dni]["vip"]:
+        descuento = subtotal * 0.10
+        print(f"Aplicando descuento VIP 10%: -{format_money(descuento)}")
+    total = subtotal - descuento
+    print(f"Subtotal: {format_money(subtotal)} | Descuento: {format_money(descuento)} | Total: {format_money(total)}")
+    confirmar = input("Confirmar venta? (s/n): ").lower()
+    if confirmar != "s":
+        print("Venta cancelada.")
+        return
+    for codigo, cantidad in carrito:
+        inventario[codigo]["stock"] -= cantidad
+    items_tuple = tuple((codigo, cantidad, inventario[codigo]["precio"]) for codigo, cantidad in carrito)
+    tx_id = utils.contador_venta
+    fecha = now_iso()
+    transaccion = (tx_id, fecha, dni, empleado_id, items_tuple, total)
+    ventas.append(transaccion)
+    clientes[dni]["compras"].append(tx_id)
+    utils.contador_venta += 1
+    print(f"✅ Venta registrada ID {tx_id}. Total {format_money(total)}")
+
+def ver_ventas():
+    if not ventas:
+        print("No hay ventas registradas.")
+        return
+    for tx in ventas:
+        print(f"ID:{tx[0]} Fecha:{tx[1]} Cliente:{tx[2]} EmpleadoID:{tx[3]} Total:{format_money(tx[5])}")
+        for item in tx[4]:
+            codigo, cantidad, precio = item
+            titulo = inventario.get(codigo, {}).get("producto", (None, "Desconocido"))[1]
+            print(f"  - {titulo} (ID {codigo}) x{cantidad} @{format_money(precio)}")
+
+def reembolsar_venta():
+    try:
+        tx_id = int(input("ID de venta a reembolsar: "))
+    except ValueError:
+        print("ID inválido.")
+        return
+    tx = next((t for t in ventas if t[0] == tx_id), None)
+    if tx is None:
+        print("Venta no encontrada.")
+        return
+    for item in tx[4]:
+        codigo, cantidad, _ = item
+        if codigo in inventario:
+            inventario[codigo]["stock"] += cantidad
+    ventas.remove(tx)
+    dni = tx[2]
+    if dni in clientes and tx_id in clientes[dni]["compras"]:
+        clientes[dni]["compras"].remove(tx_id)
+    print(f"✅ Venta {tx_id} reembolsada y stock actualizado.")
+
+# ---------- Reportes ----------
+def reporte_ventas_totales():
+    if not ventas:
+        print("No hay datos de ventas.")
+        return
+    ventas_por_dia = {}
+    for tx in ventas:
+        fecha_dia = tx[1].split("T")[0]
+        ventas_por_dia.setdefault(fecha_dia, 0.0)
+        ventas_por_dia[fecha_dia] += tx[5]
+    print("Ventas por día:")
+    for dia, total in ventas_por_dia.items():
+        print(f" {dia}: {format_money(total)}")
+    from collections import Counter
+    contador_prod = Counter()
+    for tx in ventas:
+        for item in tx[4]:
+            codigo, cantidad, _ = item
+            contador_prod[codigo] += cantidad
+    print("\nTop productos vendidos:")
+    for codigo, qty in contador_prod.most_common(5):
+        titulo = inventario.get(codigo, {}).get("producto", (None, "Desconocido"))[1]
+        print(f" {titulo} (ID {codigo}) - {qty} unidades")
+
+def reporte_inventario_bajo(min_stock=3):
+    print("Productos con stock bajo:")
+    for codigo, info in inventario.items():
+        if info["stock"] <= min_stock:
+            prod = info["producto"]
+            print(f"ID {codigo} - {prod[1]} | Stock: {info['stock']}")
+
+def reporte_cliente(dni=None):
+    if dni is None:
+        dni = input("DNI del cliente para reporte: ").strip()
+    if dni not in clientes:
+        print("Cliente no encontrado.")
+        return
+    data = clientes[dni]
+    print(f"Reporte de {data['nombre']} (DNI {dni})")
+    print(f"Compras realizadas (IDs): {data['compras']}")
+    total_gastado = sum(tx[5] for tx in ventas if tx[2] == dni)
+    print(f"Total gastado: {format_money(total_gastado)}")
+
+def analisis_plataformas_y_generos():
+    plataformas_inv = {info["producto"][2] for info in inventario.values()}
+    generos_inv = {info["producto"][3] for info in inventario.values()}
+    print(f"Plataformas en inventario: {plataformas_inv}")
+    print(f"Géneros en inventario: {generos_inv}")
+    comunes = plataformas & plataformas_inv
+    union_gen = generos | generos_inv
+    diferencia = generos_inv - generos
+    simetrica = generos ^ generos_inv
+    print(f"Intersección plataformas definidas ∧ inventario: {comunes}")
+    print(f"Unión géneros definidos ∪ inventario: {union_gen}")
+    print(f"Diferencia (inventario - definidos): {diferencia}")
+    print(f"Diferencia simétrica géneros ^ inventario: {simetrica}")
