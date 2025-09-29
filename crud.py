@@ -1,88 +1,76 @@
-from utils import usuarios, libros, generos_disponibles, contador_libros
-import utils
+from utils import estudiantes, materias_disponibles
 
-def registrar_usuario():
-    cedula = input("Ingrese cedula del usuario: ")
-    if cedula in usuarios:
-        print("❌ El usuario ya esta registrado.")
-        return
-    nombre = input("Ingrese nombre del usuario: ")
-    print(f"Géneros disponibles: {generos_disponibles}")
-    generos_favoritos = set(input("Ingrese sus generos favoritos separados por coma: ").split(","))
-    generos_favoritos = {g.strip().title() for g in generos_favoritos}
-    generos_disponibles.update(generos_favoritos)
-    usuarios[cedula] = {"nombre": nombre,"generos_favoritos": generos_favoritos,"historial": []}
-    print(f"✅ Usuario {nombre} registrado correctamente.")
-
-def agregar_libro():
-    global contador_libros
-    titulo = input("Ingrese titulo del libro: ")
-    autor = input("Ingrese autor del libro: ")
-    genero = input("Ingrese genero del libro: ").title()
-    if genero not in generos_disponibles:
-        print("⚠️ El genero no estaba en la biblioteca, pero sera añadido.")
-        generos_disponibles.add(genero)
-    libros[utils.contador_libros] = {"titulo": titulo,"autor": autor,"genero": genero,"disponible": True}
-    print(f"✅ Libro '{titulo}' agregado con codigo {utils.contador_libros}.")
-    utils.contador_libros += 1
-
-def prestar_libro():
-    cedula = input("Ingrese cedula del usuario: ")
-    if cedula not in usuarios:
-        print("❌ Usuario no registrado.")
-        return
-    try:
-        codigo = int(input("Ingrese codigo del libro: "))
-        if codigo not in libros:
-            print("❌ Libro no encontrado."); return
-        if not libros[codigo]["disponible"]:
-            print("❌ El libro ya está prestado."); return
-        libros[codigo]["disponible"] = False
-        usuarios[cedula]["historial"].append(codigo)
-        print(f"📚 {usuarios[cedula]['nombre']} ha tomado prestado '{libros[codigo]['titulo']}'.")
-    except ValueError:
-        print("❌ Codigo invalido.")
-
-def devolver_libro():
-    try:
-        codigo = int(input("Ingrese código del libro a devolver: "))
-        if codigo not in libros:
-            print("❌ Libro no encontrado."); return
-        if libros[codigo]["disponible"]:
-            print("⚠️ Este libro ya esta disponible."); return
-        libros[codigo]["disponible"] = True
-        print(f"✅ Libro '{libros[codigo]['titulo']}' devuelto correctamente.")
-    except ValueError:
-        print("❌ Código inválido.")
-
-def recomendar_libros():
-    cedula = input("Ingrese cédula del usuario: ")
-    if cedula not in usuarios:
-        print("❌ Usuario no registrado."); return
-    favoritos = usuarios[cedula]["generos_favoritos"]
-    print(f"\n🎯 Recomendaciones para {usuarios[cedula]['nombre']} (géneros: {favoritos}):")
-    recomendaciones = [datos for datos in libros.values() if datos["genero"] in favoritos and datos["disponible"]]
-    if recomendaciones:
-        for libro in recomendaciones:
-            print(f"- {libro['titulo']} ({libro['genero']}) de {libro['autor']}")
+def registrar_estudiante():
+    id_est = input("Ingrese ID del estudiante: ")
+    if id_est in estudiantes:
+        print("❌ El estudiante ya está registrado.")
     else:
-        print("❌  No hay recomendaciones disponibles.")
+        nombre = input("Ingrese nombre del estudiante: ")
+        estudiantes[id_est] = {
+            "nombre": nombre,
+            "materias": set(),
+            "calificaciones": {}
+        }
+        print(f"✅ Estudiante {nombre} registrado con éxito.")
 
-def analisis_usuarios():
-    if len(usuarios) < 2:
-        print("⚠️ Se necesitan al menos dos usuarios."); return
-    ced1 = input("Ingrese cedula del primer usuario: ")
-    ced2 = input("Ingrese cedula del segundo usuario: ")
-    if ced1 not in usuarios or ced2 not in usuarios:
-        print("❌ Alguno de los usuarios no esta registrado."); return
-    g1 = usuarios[ced1]["generos_favoritos"]
-    g2 = usuarios[ced2]["generos_favoritos"]
-    print(f"\n📊 Análisis entre {usuarios[ced1]['nombre']} y {usuarios[ced2]['nombre']}:")
-    print(f"- Géneros en común: {g1 & g2}")
-    print(f"- Géneros únicos: {g1 ^ g2}")
-    print(f"- ¿{usuarios[ced1]['nombre']} subconjunto de {usuarios[ced2]['nombre']}? {g1 <= g2}")
-    print(f"- ¿{usuarios[ced2]['nombre']} subconjunto de {usuarios[ced1]['nombre']}? {g2 <= g1}")
+def agregar_materia():
+    materia = input("Ingrese nueva materia: ").capitalize()
+    materias_disponibles.add(materia)
+    print(f"✅ Materia '{materia}' añadida a las disponibles.")
+
+def inscribir_materia():
+    id_est = input("ID del estudiante: ")
+    if id_est not in estudiantes:
+        print("❌ Estudiante no encontrado.")
+        return
+    print(f"Materias disponibles: {materias_disponibles}")
+    materia = input("Ingrese materia a inscribir: ").capitalize()
+    if materia in materias_disponibles:
+        estudiantes[id_est]["materias"].add(materia)
+        estudiantes[id_est]["calificaciones"].setdefault(materia, [])
+        print(f"✅ {estudiantes[id_est]['nombre']} inscrito en {materia}.")
+    else:
+        print("❌ Materia no disponible.")
+
+def registrar_calificacion():
+    id_est = input("ID del estudiante: ")
+    if id_est not in estudiantes:
+        print("❌ Estudiante no encontrado.")
+        return
+    materia = input("Materia: ").capitalize()
+    if materia not in estudiantes[id_est]["materias"]:
+        print("❌ El estudiante no está inscrito en esta materia.")
+        return
+    try:
+        nota = float(input("Ingrese calificación: "))
+        estudiantes[id_est]["calificaciones"][materia].append(nota)
+        print(f"✅ Nota {nota} registrada en {materia}.")
+    except ValueError:
+        print("❌ Calificación inválida.")
+
+def materias_comunes():
+    id1 = input("ID del primer estudiante: ")
+    id2 = input("ID del segundo estudiante: ")
+    if id1 not in estudiantes or id2 not in estudiantes:
+        print("❌ Alguno de los estudiantes no existe.")
+        return
+    comunes = estudiantes[id1]["materias"] & estudiantes[id2]["materias"]
+    print(f"📘 Materias comunes: {comunes if comunes else 'Ninguna'}")
+
+def generar_reporte():
+    for id_est, datos in estudiantes.items():
+        print("\n------------------------------------")
+        print(f"📌 Estudiante: {datos['nombre']} (ID: {id_est})")
+        if not datos["materias"]:
+            print("No tiene materias inscritas.")
+            continue
+        for materia, notas in datos["calificaciones"].items():
+            if notas:
+                promedio = sum(notas) / len(notas)
+                print(f"📖 {materia}: {notas} -> Promedio: {promedio:.2f}")
+            else:
+                print(f"📖 {materia}: Sin calificaciones registradas.")
 
 def salir():
-    print("Salida del programa.👋 ")
+    print("👋 Saliendo del sistema...")
     return False
